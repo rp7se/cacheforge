@@ -1,34 +1,39 @@
 # CacheForge
 
-CacheForge is a lightweight C++17 key-value cache server built to explore
-backend fundamentals including TCP networking, basic concurrency, TTL
-expiration, and snapshot persistence.
+CacheForge 是一个基于 C++17 实现的轻量级 Key-Value 缓存服务器，用于学习和展示 TCP 网络通信、基础多线程并发、TTL 过期机制与 Snapshot 快照持久化等 C++ 服务端开发基础。
 
-## Project Overview
+## 项目简介
 
-CacheForge is a learning-oriented and portfolio-focused server for practicing
-understandable C++ backend design. It combines a thread-safe in-memory store,
-a small text command pipeline, a blocking Windows TCP server, TTL expiration,
-and a simple snapshot module without external libraries or advanced
-infrastructure.
+CacheForge 是一个面向学习与作品展示的 C++ 后端项目。项目通过清晰、易于理解的模块组合，实现线程安全的内存存储、文本命令处理、Windows TCP Server、TTL 过期和基础 Snapshot Persistence，不依赖第三方库，也不引入复杂基础设施。
 
-## Key Features
+## 核心功能
 
-- In-memory key-value storage
-- `SET`, `GET`, `DEL`, `EXISTS`, and `SETEX` commands
-- Whitespace-based command parsing and command-name normalization
-- Separate command parsing and execution modules
-- Windows Winsock2 TCP server using a newline-delimited text protocol
-- Multiple concurrent clients using one `std::thread` per connection
-- Shared KVStore protected by `std::mutex`
-- TTL expiration with lazy checks and simple periodic cleanup
-- Snapshot save/load APIs for ordinary keys without TTL
-- Automatic snapshot restore during server startup
-- Tests for storage, parsing, execution, concurrency, TTL, and persistence
+- 内存 Key-Value Store
+- 支持 `SET`、`GET`、`DEL`、`EXISTS` 和 `SETEX` 命令
+- 基于空白字符的命令分词与 Command 名称标准化
+- 相互独立的 CommandParser 与 CommandProcessor
+- 基于 Windows Winsock2 的 TCP Server
+- 使用 newline-delimited text protocol，每行一个请求和响应
+- 支持多个客户端同时连接，每个连接由一个 `std::thread` 处理
+- 使用 `std::mutex` 保护共享 KVStore
+- TTL Expiration、Lazy Expiration 与 Periodic Cleanup
+- 面向普通无 TTL Key 的 Snapshot 保存与加载 API
+- Server 启动时自动加载 Snapshot
+- 覆盖存储、解析、执行、线程安全、TTL 和 Snapshot 的自动化测试
 
-## Architecture
+## 技术栈
 
-The command path follows the current module boundaries:
+- C++17
+- CMake 3.16 或更高版本
+- C++ Standard Library：容器、线程、`chrono`、`filesystem`
+- Windows Winsock2（`ws2_32`）
+- MSVC / Visual Studio 2022 Build Tools
+
+项目没有第三方运行时依赖，也不依赖第三方测试框架。
+
+## 系统架构
+
+当前命令处理链路如下：
 
 ```text
 TCP Client
@@ -46,10 +51,10 @@ CommandProcessor
 KVStore
     |
     v
-Text Response
+Response
 ```
 
-TTL and persistence are connected directly to the storage layer:
+TTL 与 Snapshot Persistence 直接围绕存储层工作：
 
 ```text
 KVStore ---> TTL Expiration
@@ -57,184 +62,124 @@ KVStore ---> TTL Expiration
     +------> SnapshotPersistence
 ```
 
-The server concurrency model is intentionally small:
+当前并发模型保持简单：
 
 ```text
-Main Server Thread
+Server Main Thread
     |
     v
 blocking accept()
     |
     v
-One std::thread per client connection
+One Thread Per Client Connection
     |
     v
-Shared thread-safe KVStore
+Shared Thread-safe KVStore
 ```
 
-## Tech Stack
+## 命令说明
 
-- C++17
-- CMake 3.16 or newer
-- C++ Standard Library containers, threading, chrono, and filesystem APIs
-- Windows Winsock2 (`ws2_32`)
-- MSVC / Visual Studio 2022 Build Tools for the documented Windows build
+Command 名称不区分大小写，Key 和 Value 保留原始大小写。每个请求与响应都以换行符结束。
 
-The project has no third-party runtime or test-framework dependencies.
-
-## Quick Start
-
-### Requirements
-
-- Windows
-- CMake 3.16 or newer
-- A C++17 compiler, such as MSVC from Visual Studio 2022
-
-### Build
-
-Run from the repository root:
-
-```powershell
-cmake -S . -B build
-cmake --build build --config Debug
-```
-
-The executable target is `cacheforge_server`. With the Visual Studio generator,
-the Debug executable is typically located at:
-
-```text
-build/Debug/cacheforge_server.exe
-```
-
-### Run
-
-```powershell
-.\build\Debug\cacheforge_server.exe
-```
-
-The server reports its default endpoint when startup succeeds:
-
-```text
-CacheForge Server
-Listening on 127.0.0.1:6380
-```
-
-### PowerShell Client Example
-
-The protocol only requires a TCP client that sends one command per line. This
-PowerShell example uses .NET's built-in `TcpClient`:
-
-```powershell
-$client = [System.Net.Sockets.TcpClient]::new('127.0.0.1', 6380)
-$stream = $client.GetStream()
-$writer = [System.IO.StreamWriter]::new($stream)
-$reader = [System.IO.StreamReader]::new($stream)
-$writer.AutoFlush = $true
-
-$writer.WriteLine('SET name Tracy')
-$reader.ReadLine()  # OK
-$writer.WriteLine('GET name')
-$reader.ReadLine()  # Tracy
-
-$client.Dispose()
-```
-
-PowerShell is only an example client and is not a project dependency.
-
-## Commands
-
-Commands are case-insensitive, while keys and values retain their original
-case. Each request and response ends with a newline.
-
-| Command | Example | Response |
+| 命令 | 示例 | 返回结果 |
 | --- | --- | --- |
-| `SET key value` | `SET name Tracy` | `OK` |
-| `GET key` | `GET name` | Stored value, or `(nil)` when missing or expired |
-| `DEL key` | `DEL name` | `1` when deleted, otherwise `0` |
-| `EXISTS key` | `EXISTS name` | `1` when present, otherwise `0` |
-| `SETEX key seconds value` | `SETEX session 60 abc123` | `OK` for a valid positive integer TTL |
+| `SET key value` | `SET name Tracy` | 成功返回 `OK` |
+| `GET key` | `GET name` | 返回 Value；Key 不存在或已过期时返回 `(nil)` |
+| `DEL key` | `DEL name` | 删除成功返回 `1`，否则返回 `0` |
+| `EXISTS key` | `EXISTS name` | Key 存在返回 `1`，否则返回 `0` |
+| `SETEX key seconds value` | `SETEX session 60 abc123` | TTL 为有效正整数时返回 `OK` |
 
-Wrong argument counts return `ERROR wrong number of arguments`. Invalid
-`SETEX` durations return `ERROR invalid expiration`, and unsupported commands
-return `ERROR unknown command`.
+参数数量错误时返回 `ERROR wrong number of arguments`；`SETEX` 的 seconds 无效时返回 `ERROR invalid expiration`；不支持的命令返回 `ERROR unknown command`。
 
-The parser uses whitespace-delimited tokens. Consequently, the current TCP
-command format does not support keys or values containing spaces or newlines.
+当前协议使用空白字符分隔 Token，因此通过 TCP 发送的 Key 和 Value 不能包含空格或换行。
 
-## Storage and Command Processing
+## KVStore 设计
 
-### KVStore
+KVStore 使用以下结构保存数据：
 
-KVStore stores `std::unordered_map<std::string, Entry>`, where each `Entry`
-contains a value and an optional expiration timestamp. The container provides
-average-case constant-time lookup, insertion, and deletion behavior, but no
-strict worst-case constant-time guarantee.
+```cpp
+std::unordered_map<std::string, Entry>
+```
 
-`get()` returns `std::optional<std::string>` so a missing key remains distinct
-from a stored empty string. KVStore owns its synchronization and expiration
-state, keeping callers independent of its internal container.
+每个 `Entry` 包含一个 Value 和一个可选的 Expiration Timestamp。`std::unordered_map` 在平均情况下能够提供较高效的查找、插入和删除操作，但不保证严格的最坏情况常数时间。
+
+`get()` 返回 `std::optional<std::string>`，因此能够区分“Key 不存在”和“Value 是空字符串”两种状态。KVStore 自己管理内部容器、线程同步和过期状态，调用方不需要直接接触这些实现细节。
+
+## 命令解析与执行流程
 
 ### CommandParser
 
-CommandParser performs whitespace tokenization, normalizes only the command
-name to uppercase, and extracts arguments. It does not validate command
-semantics, execute commands, or access KVStore.
+CommandParser 负责：
+
+- 将原始文本命令按空白字符分词
+- 仅将 Command 名称标准化为大写
+- 提取 Arguments，并保留其原始大小写
+
+CommandParser 不负责命令业务校验、命令执行或 KVStore 操作。
 
 ### CommandProcessor
 
-CommandProcessor validates argument counts and `SETEX` durations, executes the
-five supported commands against KVStore, and formats the text response. Unknown
-commands are rejected here rather than by the parser.
+CommandProcessor 负责：
 
-## Concurrency Model
+- 校验参数数量
+- 校验 `SETEX` 的 seconds
+- 调用 KVStore 执行命令
+- 格式化文本 Response
 
-TcpServer uses blocking Winsock2 sockets. The main server thread blocks in
-`accept()`, then creates and detaches one `std::thread` for each accepted client.
-Each client thread parses and processes its own newline-delimited requests.
+当前支持的命令只有 `SET`、`GET`、`DEL`、`EXISTS` 和 `SETEX`。未知命令由 CommandProcessor 返回错误。
 
-All clients share one CommandProcessor and one KVStore. Regular KVStore
-operations use `std::lock_guard<std::mutex>` around the internal data. The TTL
-cleanup loop uses the same mutex with `std::unique_lock` because it waits on a
-condition variable. This is a simple learning-oriented concurrency model, not
-a thread-pool or asynchronous networking architecture.
+## TCP Server
 
-## TTL Design
+TcpServer 基于 Windows Winsock2，使用 Blocking Socket 和 newline-delimited text protocol。Server 默认监听：
 
-`SETEX key seconds value` stores a value with a positive integer lifetime. Each
-TTL Entry keeps an expiration timestamp based on `std::chrono::steady_clock`.
+```text
+127.0.0.1:6380
+```
 
-- `GET`, `EXISTS`, and `DEL` lazily remove an expired key and treat it as absent.
-- Ordinary `SET` overwrites the Entry and clears any previous TTL.
-- A joinable background cleanup thread scans for expired entries every second.
-- KVStore destruction sets a stop flag, wakes the cleanup thread, and joins it.
+Server 会处理 TCP 分包与同一接收缓冲区中的多条命令。每个完整行交给 CommandParser 和 CommandProcessor 处理，再将一行文本 Response 返回给客户端。
 
-The implementation uses a simple scan rather than a timing wheel, heap-based
-scheduler, or advanced timer framework.
+## 并发模型与线程安全
 
-## Snapshot Persistence
+Server Main Thread 阻塞在 `accept()`。每当接受一个客户端连接，TcpServer 会创建并 detach 一个独立的 `std::thread` 处理该连接。
 
-SnapshotPersistence exposes explicit `save()` and `load()` APIs. Before writing,
-KVStore copies all ordinary entries while holding its mutex; file I/O then runs
-after the lock is released. Loading validates the whole file before restoring
-entries through a dedicated KVStore API.
+所有客户端线程共享同一个 CommandProcessor 和 KVStore。KVStore 的普通操作使用 `std::lock_guard<std::mutex>` 保护内部数据；TTL Cleanup Loop 因为需要等待 condition variable，使用同一个 mutex 配合 `std::unique_lock`。
 
-The default file is the relative path `cacheforge.snapshot` in the server's
-current working directory. It uses a versioned length-prefixed format, avoiding
-delimiter conflicts in keys and values stored directly through KVStore.
+这是一个简单、学习型的并发模型，用于展示基础线程创建、共享数据访问和互斥保护，不使用 Thread Pool 或 Async Networking。
 
-- Ordinary keys without TTL are saved and restored.
-- TTL keys are excluded because `steady_clock` timestamps are not meaningful
-  across process restarts.
-- A TTL key overwritten by ordinary `SET` becomes eligible for the next save.
-- A missing file is treated as the first server run.
-- A malformed file produces an error; the server continues without restoring it.
-- Server startup automatically calls `load()` before TCP listening begins.
-- Saving is currently a programmatic API only. There is no `SAVE` command or
-  graceful Ctrl+C auto-save path.
+## TTL 过期机制
 
-The snapshot mechanism does not provide crash-safe or transactional durability.
+`SETEX key seconds value` 可以为 Key 设置正整数秒数的 TTL。每个 TTL Entry 使用 `std::chrono::steady_clock` 保存 Expiration Timestamp。
 
-## Project Structure
+- `GET`、`EXISTS` 和 `DEL` 会执行 Lazy Expiration：过期 Key 会被删除并视为不存在。
+- 普通 `SET` 会覆盖 Entry 并清除原有 TTL。
+- 一个可 `join` 的后台 Cleanup Thread 每秒扫描一次并删除过期 Entry。
+- KVStore 析构时会设置停止标记、唤醒 Cleanup Thread，然后执行 `join()`。
+
+当前实现采用简单遍历，没有使用 Timing Wheel、Min-Heap Scheduler 或复杂 Timer Framework。
+
+## Snapshot 快照持久化
+
+SnapshotPersistence 提供显式的 `save()` 和 `load()` API。保存时，KVStore 会在 mutex 保护下复制所有可持久化 Entry，然后释放锁，再执行文件 I/O。加载时会先完整验证文件内容，验证成功后再通过 KVStore 的 Restore API 恢复数据。
+
+默认 Snapshot 文件为 Server 当前工作目录下的相对路径：
+
+```text
+cacheforge.snapshot
+```
+
+Snapshot 使用带版本标识的长度前缀格式，避免直接使用简单分隔符造成 Key 或 Value 内容冲突。
+
+- 普通无 TTL Key 可以保存和恢复。
+- TTL Key 不写入 Snapshot，因为 `steady_clock` 的时间戳不能直接跨进程复用。
+- TTL Key 被普通 `SET` 覆盖后会清除 TTL，可以在下一次 Save 时进入 Snapshot。
+- Snapshot 文件不存在时视为 Server 第一次运行。
+- Snapshot 文件损坏时会输出错误，Server 继续启动但不会恢复该文件。
+- Server 会在开始 TCP 监听前自动调用 `load()`。
+- Save 目前仅通过程序 API 显式调用，没有 `SAVE` 命令，也没有 Ctrl+C 自动保存流程。
+
+当前 Snapshot 是基础学习型持久化机制，不提供 Crash-safe 或 Transactional Durability 保证。
+
+## 项目目录结构
 
 ```text
 CacheForge/
@@ -264,65 +209,117 @@ CacheForge/
 `-- .gitignore
 ```
 
-Generated build files, executables, IDE settings, and runtime snapshots are
-excluded from the documented source tree and ignored by Git.
+`build/`、CMake 生成文件、Executable、IDE 配置和运行时 Snapshot 均不属于源码目录，并已通过 `.gitignore` 忽略。
 
-## Testing
+## 环境要求
 
-Build first, then run every registered test with CTest:
+- Windows
+- CMake 3.16 或更高版本
+- 支持 C++17 的编译器，例如 Visual Studio 2022 提供的 MSVC
+
+项目不要求安装 Boost、Drogon、SQLite、Redis 或 GoogleTest。
+
+## 构建与运行
+
+在项目根目录执行：
+
+```powershell
+cmake -S . -B build
+cmake --build build --config Debug
+```
+
+CMake executable target 名称为 `cacheforge_server`。使用 Visual Studio Generator 时，Debug executable 通常位于：
+
+```text
+build/Debug/cacheforge_server.exe
+```
+
+启动 Server：
+
+```powershell
+.\build\Debug\cacheforge_server.exe
+```
+
+启动成功后会输出：
+
+```text
+CacheForge Server
+Listening on 127.0.0.1:6380
+```
+
+## TCP 客户端测试示例
+
+下面使用 PowerShell 内置的 .NET `TcpClient` 连接 Server，不需要额外安装客户端依赖：
+
+```powershell
+$client = [System.Net.Sockets.TcpClient]::new('127.0.0.1', 6380)
+$stream = $client.GetStream()
+$writer = [System.IO.StreamWriter]::new($stream)
+$reader = [System.IO.StreamReader]::new($stream)
+$writer.AutoFlush = $true
+
+$writer.WriteLine('SET name Tracy')
+$reader.ReadLine()  # OK
+$writer.WriteLine('GET name')
+$reader.ReadLine()  # Tracy
+$writer.WriteLine('SETEX temp 5 hello')
+$reader.ReadLine()  # OK
+
+$client.Dispose()
+```
+
+PowerShell 仅用于演示 TCP Client，不是 CacheForge 的项目依赖。
+
+## 测试
+
+完成构建后，可以通过 CTest 运行所有已注册测试：
 
 ```powershell
 ctest --test-dir build -C Debug --output-on-failure
 ```
 
-| Test executable | CTest name | Coverage |
+| Test Executable | CTest Name | 测试内容 |
 | --- | --- | --- |
-| `cacheforge_kvstore_tests` | `kvstore_tests` | Storage operations and missing/empty-value behavior |
-| `cacheforge_command_parser_tests` | `command_parser_tests` | Tokenization, normalization, whitespace, and edge cases |
-| `cacheforge_command_processor_tests` | `command_processor_tests` | Validation, execution, responses, and integration |
-| `cacheforge_kvstore_thread_tests` | `kvstore_thread_tests` | Shared KVStore thread safety |
-| `cacheforge_ttl_tests` | `ttl_tests` | SETEX, expiration, cleanup, and TTL concurrency |
-| `cacheforge_snapshot_tests` | `snapshot_tests` | Save/load, TTL exclusion, corruption, and file cleanup |
+| `cacheforge_kvstore_tests` | `kvstore_tests` | KVStore 基础操作、缺失 Key 与空 Value |
+| `cacheforge_command_parser_tests` | `command_parser_tests` | 分词、大小写标准化、空白与边界输入 |
+| `cacheforge_command_processor_tests` | `command_processor_tests` | 参数校验、命令执行、Response 与模块集成 |
+| `cacheforge_kvstore_thread_tests` | `kvstore_thread_tests` | 共享 KVStore 的基础线程安全 |
+| `cacheforge_ttl_tests` | `ttl_tests` | SETEX、过期、Cleanup 与 TTL 并发操作 |
+| `cacheforge_snapshot_tests` | `snapshot_tests` | Save/Load、TTL 排除、损坏文件与临时文件清理 |
 
-Tests are small standalone executables and do not require GoogleTest.
+所有测试都是独立的小型 Executable，不依赖 GoogleTest。
 
-## Design Decisions
+## 关键设计说明
 
-- `std::unordered_map` keeps the storage implementation small and gives useful
-  average-case lookup behavior for a cache exercise.
-- `std::optional` distinguishes a missing key from a stored empty value.
-- Separating CommandParser from CommandProcessor keeps tokenization independent
-  from validation, execution, and storage.
-- KVStore owns its mutex so every caller receives the same synchronization
-  guarantees without coordinating external locks.
-- One thread per client keeps blocking network code understandable and allows
-  multiple simultaneous connections without a complex scheduler.
-- Lazy expiration keeps normal operations correct, while periodic cleanup
-  removes expired keys that are never accessed again.
-- TTL entries are excluded from snapshots because their `steady_clock`
-  timestamps cannot be safely reused after a process restart.
+- 使用 `std::unordered_map`，让存储层保持简洁，并获得适合缓存练习项目的平均查找效率。
+- 使用 `std::optional`，区分不存在的 Key 和空字符串 Value。
+- 分离 CommandParser 与 CommandProcessor，使分词职责独立于参数校验、执行和存储操作。
+- 由 KVStore 自己管理 mutex，让所有调用方获得一致的线程安全保证，无需协调外部锁。
+- 每个 Client 一个线程，使 Blocking Socket 代码容易理解，同时支持多个客户端连接。
+- Lazy Expiration 保证访问时的正确性，Periodic Cleanup 则清理长期不再访问的过期 Key。
+- Snapshot 排除 TTL Entry，因为基于 `steady_clock` 的 Expiration Timestamp 不能安全跨进程复用。
 
-## Current Limitations
+## 当前限制
 
-- Windows Winsock2 networking only
-- Blocking sockets and one detached thread per client
-- No thread pool, non-blocking I/O, IOCP, or event loop
-- No graceful server shutdown or Ctrl+C snapshot auto-save
-- Whitespace-delimited commands do not support spaces or newlines in keys/values
-- No LRU eviction or configurable memory limit
-- TTL keys are not persisted
-- Snapshot persistence is simple and not crash-safe or transactional
-- No Redis protocol compatibility
-- No replication, clustering, or distributed-cache features
-- No advanced benchmark suite
+- 网络层当前仅支持 Windows Winsock2。
+- 使用 Blocking Socket，每个客户端连接对应一个 detach Thread。
+- 未实现 Thread Pool、Non-blocking I/O、IOCP 或 Event Loop。
+- 没有优雅关闭流程，也不支持 Ctrl+C 自动保存 Snapshot。
+- 命令使用空白字符分词，Key 和 Value 不能包含空格或换行。
+- 未实现 LRU Eviction 和可配置 Memory Limit。
+- TTL Key 不进入 Snapshot。
+- Snapshot 是简单持久化方案，不提供 Crash-safe 或 Transactional 保证。
+- 不兼容 Redis Protocol。
+- 未实现 Replication、Clustering 或 Distributed Cache。
+- 暂无完整 Benchmark Suite。
 
-## Future Improvements
+## 未来可改进方向
 
-The following are possible future directions and are not implemented:
+以下内容属于未来方向，当前尚未实现：
 
-- Cross-platform socket abstraction
-- Bounded thread pool
-- LRU eviction and configurable memory limits
-- More robust persistence and graceful shutdown support
-- Protocol improvements for values containing whitespace
-- Repeatable benchmarking and profiling
+- 跨平台 Socket 抽象
+- 有界 Thread Pool
+- LRU Eviction 与可配置 Memory Limit
+- 更完善的持久化和优雅关闭流程
+- 支持包含空白字符 Value 的协议格式
+- 可重复执行的 Benchmark 与 Profiling
