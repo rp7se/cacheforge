@@ -9,6 +9,8 @@
 #include <array>
 #include <iostream>
 #include <string>
+#include <system_error>
+#include <thread>
 #include <utility>
 
 namespace {
@@ -166,15 +168,24 @@ int TcpServer::run() {
               << "Listening on " << address_ << ':' << port_ << '\n';
 
     while (true) {
-        const SocketHandle client_socket(accept(listening_socket.get(), nullptr, nullptr));
-        if (!client_socket.valid()) {
+        const SOCKET client_socket = accept(listening_socket.get(), nullptr, nullptr);
+        if (client_socket == INVALID_SOCKET) {
             std::cerr << "accept failed: " << WSAGetLastError() << '\n';
-            return 1;
+            continue;
         }
 
-        std::cout << "Client connected\n";
-        handle_client(client_socket.get(), processor_);
-        std::cout << "Client disconnected\n";
+        try {
+            std::thread client_thread([client_socket, processor = &processor_]() {
+                const SocketHandle socket_handle(client_socket);
+                std::cout << "Client connected\n";
+                handle_client(socket_handle.get(), *processor);
+                std::cout << "Client disconnected\n";
+            });
+            client_thread.detach();
+        } catch (const std::system_error& error) {
+            std::cerr << "client thread creation failed: " << error.what() << '\n';
+            closesocket(client_socket);
+        }
     }
 }
 

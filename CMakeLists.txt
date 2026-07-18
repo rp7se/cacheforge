@@ -59,3 +59,11 @@ add_executable(cacheforge_command_processor_tests
 target_link_libraries(cacheforge_command_processor_tests PRIVATE cacheforge_core)
 
 add_test(NAME command_processor_tests COMMAND cacheforge_command_processor_tests)
+
+add_executable(cacheforge_kvstore_thread_tests
+    tests/KVStoreThreadTests.cpp
+)
+
+target_link_libraries(cacheforge_kvstore_thread_tests PRIVATE cacheforge_core)
+
+add_test(NAME kvstore_thread_tests COMMAND cacheforge_kvstore_thread_tests)
