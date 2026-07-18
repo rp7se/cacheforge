@@ -72,3 +72,6 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# CacheForge runtime snapshots
+*.snapshot

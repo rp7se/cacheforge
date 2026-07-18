@@ -5,7 +5,8 @@ A lightweight C++17 key-value cache server for learning backend fundamentals.
 ## Current Status
 
 The project currently provides a basic thread-safe in-memory storage layer,
-command parser, command processor, and concurrent TCP server for Windows.
+command parser, command processor, concurrent TCP server for Windows, TTL, and
+simple snapshot persistence for ordinary keys.
 
 ## Implemented
 
@@ -25,6 +26,8 @@ command parser, command processor, and concurrent TCP server for Windows.
 - TTL Expiration through `SETEX key seconds value`
 - Lazy Expiration on `GET`, `DEL`, and `EXISTS`
 - Simple Periodic Cleanup of expired keys
+- Snapshot Persistence for ordinary keys without TTL
+- Automatic Snapshot Restore during server startup
 
 The storage layer uses `std::unordered_map`. In the average case, `set`, `get`,
 `del`, and `exists` have close to O(1) lookup, insertion, and deletion
@@ -46,6 +49,27 @@ TTL uses an expiration timestamp based on `std::chrono::steady_clock`. Expired
 keys are removed lazily when accessed, while one joinable background thread
 performs a simple periodic cleanup. Ordinary `SET` removes any previous TTL.
 
+## Snapshot Persistence
+
+`SnapshotPersistence` saves ordinary keys without TTL and restores them as
+ordinary keys. It copies persistent entries while holding the KVStore mutex,
+then releases the mutex before writing the file. Keys created by `SETEX` are not
+saved because `std::chrono::steady_clock` timestamps are process-local. If a TTL
+key is later overwritten with ordinary `SET`, the TTL is cleared and that key
+becomes eligible for the next snapshot.
+
+The snapshot uses a versioned, length-prefixed text format so keys and values
+can contain characters such as `=` or newlines. The default file is
+`cacheforge.snapshot` in the server's current working directory. At startup the
+server attempts to load this file before creating the command processor and
+starting TCP listening. A missing file is treated as the first run. A malformed
+file produces an error message and the server continues without restoring it.
+
+Saving is currently an explicit `SnapshotPersistence::save()` operation. The
+server has no `SAVE` command or graceful Ctrl+C shutdown hook, so it does not
+automatically save on Ctrl+C and does not promise crash-safe persistence. This
+is intentionally a simple learning-oriented snapshot mechanism, not a database
+or transactional durability system.
 ## Build and Run
 
 ```sh
@@ -55,9 +79,3 @@ cmake --build build --config Debug
 
 With a multi-configuration generator, run the Debug executable from the
 generated configuration directory (for example, `build/Debug`).
-
-## Planned Features
-
-The following features are planned and are not implemented yet:
-
-- Snapshot Persistence
