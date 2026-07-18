@@ -4,9 +4,19 @@ A lightweight C++17 key-value cache server for learning backend fundamentals.
 
 ## Current Status
 
-Project Foundation — the repository currently provides a CMake-based C++17
-project skeleton and a minimal server executable. Cache functionality and
-networking are not implemented yet.
+The project currently provides a basic in-memory storage layer and a minimal
+server executable. Command parsing and networking are not implemented yet.
+
+## Implemented
+
+- In-memory Key-Value Store
+- `set`, `get`, `del`, and `exists` storage operations
+- Distinct handling for missing keys and empty string values
+- Basic KVStore tests
+
+The storage layer uses `std::unordered_map`. In the average case, `set`, `get`,
+`del`, and `exists` have close to O(1) lookup, insertion, and deletion
+complexity. This storage layer is not thread-safe.
 
 ## Build and Run
 
@@ -22,11 +32,9 @@ generated configuration directory (for example, `build/Debug`).
 
 The following features are planned and are not implemented yet:
 
-- Key-Value Store
-- `SET` / `GET` / `DEL` / `EXISTS` commands
+- Command Parser and command responses
 - TCP Server
 - Multiple Client Connections
-- Thread-safe Storage
+- Thread Safety
 - TTL Expiration
 - Snapshot Persistence
-- Testing
