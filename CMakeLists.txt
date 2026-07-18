@@ -13,6 +13,7 @@ else()
 endif()
 
 add_library(cacheforge_core
+    src/CommandParser.cpp
     src/KVStore.cpp
 )
 
@@ -36,3 +37,11 @@ add_executable(cacheforge_kvstore_tests
 target_link_libraries(cacheforge_kvstore_tests PRIVATE cacheforge_core)
 
 add_test(NAME kvstore_tests COMMAND cacheforge_kvstore_tests)
+
+add_executable(cacheforge_command_parser_tests
+    tests/CommandParserTests.cpp
+)
+
+target_link_libraries(cacheforge_command_parser_tests PRIVATE cacheforge_core)
+
+add_test(NAME command_parser_tests COMMAND cacheforge_command_parser_tests)
