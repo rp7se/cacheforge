@@ -22,10 +22,13 @@ command parser, command processor, and concurrent TCP server for Windows.
 - Concurrent Client Connections using one `std::thread` per client
 - Basic thread-safe KVStore protected by `std::mutex`
 - Deterministic KVStore thread-safety tests
+- TTL Expiration through `SETEX key seconds value`
+- Lazy Expiration on `GET`, `DEL`, and `EXISTS`
+- Simple Periodic Cleanup of expired keys
 
 The storage layer uses `std::unordered_map`. In the average case, `set`, `get`,
 `del`, and `exists` have close to O(1) lookup, insertion, and deletion
-complexity. This storage layer is not thread-safe.
+complexity. Access to the storage layer is protected by a single `std::mutex`.
 
 The Command Parser supports whitespace tokenization, command normalization to
 uppercase, and argument extraction. The Command Processor validates argument
@@ -38,6 +41,10 @@ The complete flow is TCP Client → `TcpServer` → `CommandParser` →
 connection. All client threads share one KVStore, whose data is protected by a
 single `std::mutex`. The concurrency model is intentionally simple and
 learning-oriented.
+
+TTL uses an expiration timestamp based on `std::chrono::steady_clock`. Expired
+keys are removed lazily when accessed, while one joinable background thread
+performs a simple periodic cleanup. Ordinary `SET` removes any previous TTL.
 
 ## Build and Run
 
@@ -53,5 +60,4 @@ generated configuration directory (for example, `build/Debug`).
 
 The following features are planned and are not implemented yet:
 
-- TTL Expiration
 - Snapshot Persistence
