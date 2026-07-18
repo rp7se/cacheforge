@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -15,6 +16,7 @@ public:
     [[nodiscard]] bool exists(const std::string& key) const;
 
 private:
+    mutable std::mutex mutex_;
     std::unordered_map<std::string, std::string> data_;
 };
 

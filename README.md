@@ -4,8 +4,8 @@ A lightweight C++17 key-value cache server for learning backend fundamentals.
 
 ## Current Status
 
-The project currently provides a basic in-memory storage layer, command parser,
-command processor, and synchronous blocking TCP server for Windows.
+The project currently provides a basic thread-safe in-memory storage layer,
+command parser, command processor, and concurrent TCP server for Windows.
 
 ## Implemented
 
@@ -19,6 +19,9 @@ command processor, and synchronous blocking TCP server for Windows.
 - Basic CommandProcessor and integration tests
 - Basic TCP Server using Windows Winsock2
 - Newline-delimited `SET`, `GET`, `DEL`, and `EXISTS` commands over TCP
+- Concurrent Client Connections using one `std::thread` per client
+- Basic thread-safe KVStore protected by `std::mutex`
+- Deterministic KVStore thread-safety tests
 
 The storage layer uses `std::unordered_map`. In the average case, `set`, `get`,
 `del`, and `exists` have close to O(1) lookup, insertion, and deletion
@@ -31,9 +34,10 @@ simple text responses.
 
 The complete flow is TCP Client → `TcpServer` → `CommandParser` →
 `CommandProcessor` → `KVStore` → text response. The server listens on
-`127.0.0.1:6380` by default and uses synchronous blocking I/O with sequential
-client handling. It serves one connected client at a time; concurrent client
-handling is not implemented.
+`127.0.0.1:6380` by default and uses blocking sockets with one thread per client
+connection. All client threads share one KVStore, whose data is protected by a
+single `std::mutex`. The concurrency model is intentionally simple and
+learning-oriented.
 
 ## Build and Run
 
@@ -49,7 +53,5 @@ generated configuration directory (for example, `build/Debug`).
 
 The following features are planned and are not implemented yet:
 
-- Concurrent Client Handling
-- Thread Safety
 - TTL Expiration
 - Snapshot Persistence
