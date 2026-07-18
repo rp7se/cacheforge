@@ -1,9 +1,11 @@
-#include <iostream>
+#include "cacheforge/CommandProcessor.h"
+#include "cacheforge/KVStore.h"
+#include "cacheforge/TcpServer.h"
 
 int main() {
-    std::cout << "CacheForge Server\n"
-              << "Version: 0.1.0\n"
-              << "Status: initialized\n";
+    cacheforge::KVStore store;
+    cacheforge::CommandProcessor processor(store);
+    cacheforge::TcpServer server(processor);
 
-    return 0;
+    return server.run();
 }

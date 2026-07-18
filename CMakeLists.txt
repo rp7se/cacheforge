@@ -25,9 +25,14 @@ target_include_directories(cacheforge_core
 
 add_executable(cacheforge_server
     src/main.cpp
+    src/TcpServer.cpp
 )
 
 target_link_libraries(cacheforge_server PRIVATE cacheforge_core)
+
+if(WIN32)
+    target_link_libraries(cacheforge_server PRIVATE ws2_32)
+endif()
 
 enable_testing()
 
