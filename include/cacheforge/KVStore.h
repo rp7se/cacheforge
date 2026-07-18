@@ -8,11 +8,15 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace cacheforge {
 
 class KVStore {
 public:
+    using PersistentEntries = std::vector<std::pair<std::string, std::string>>;
+
     KVStore();
     ~KVStore();
 
@@ -27,6 +31,8 @@ public:
     [[nodiscard]] std::optional<std::string> get(const std::string& key) const;
     [[nodiscard]] bool del(const std::string& key);
     [[nodiscard]] bool exists(const std::string& key) const;
+    [[nodiscard]] PersistentEntries getPersistentEntries() const;
+    void restorePersistentEntries(const PersistentEntries& entries);
     std::size_t removeExpired();
 
 private:

@@ -16,6 +16,7 @@ add_library(cacheforge_core
     src/CommandParser.cpp
     src/CommandProcessor.cpp
     src/KVStore.cpp
+    src/SnapshotPersistence.cpp
 )
 
 target_include_directories(cacheforge_core
@@ -75,3 +76,11 @@ add_executable(cacheforge_ttl_tests
 target_link_libraries(cacheforge_ttl_tests PRIVATE cacheforge_core)
 
 add_test(NAME ttl_tests COMMAND cacheforge_ttl_tests)
+
+add_executable(cacheforge_snapshot_tests
+    tests/SnapshotPersistenceTests.cpp
+)
+
+target_link_libraries(cacheforge_snapshot_tests PRIVATE cacheforge_core)
+
+add_test(NAME snapshot_tests COMMAND cacheforge_snapshot_tests)

@@ -72,6 +72,28 @@ bool KVStore::exists(const std::string& key) const {
     return true;
 }
 
+KVStore::PersistentEntries KVStore::getPersistentEntries() const {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    PersistentEntries entries;
+    entries.reserve(data_.size());
+
+    for (const auto& [key, entry] : data_) {
+        if (!entry.expire_at.has_value()) {
+            entries.emplace_back(key, entry.value);
+        }
+    }
+
+    return entries;
+}
+
+void KVStore::restorePersistentEntries(const PersistentEntries& entries) {
+    const std::lock_guard<std::mutex> lock(mutex_);
+
+    for (const auto& [key, value] : entries) {
+        data_[key] = Entry{value, std::nullopt};
+    }
+}
+
 std::size_t KVStore::removeExpired() {
     const std::lock_guard<std::mutex> lock(mutex_);
     return removeExpiredLocked(Clock::now());
